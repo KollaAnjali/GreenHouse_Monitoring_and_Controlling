@@ -1,0 +1,75 @@
+#include <DHT.h>
+#include <ESP8266WiFi.h>
+#include <ThingSpeak.h>
+
+DHT dht(D2,DHT11);
+
+WiFiClient client;
+
+const char* ssid="Pavan";
+const char* password="password";
+
+char* apikey="F86YHARPKN46E5EQ";
+int channelid=2420618;
+
+int light=D0;
+int relay=D1;
+int soil=A0;
+
+void setup() {
+  pinMode(light,INPUT);
+  pinMode(relay,OUTPUT);
+  pinMode(soil,INPUT);
+  
+  Serial.begin(9600);
+  dht.begin();
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid,password);
+  while(WiFi.status()!=WL_CONNECTED){
+    Serial.print(".");
+    delay(500);
+  }
+  Serial.println("WIFI CONNECTED");
+  ThingSpeak.begin(client); // nodemcu connect to thingspeak
+}
+
+void loop() {
+  int l=digitalRead(light);
+  if(l==1) { // darkness
+    digitalWrite(relay,0); // on
+  } else {
+    digitalWrite(relay,1); // off
+  }
+
+  float h=dht.readHumidity();
+  float t=dht.readTemperature();
+
+  if(isnan(h)||isnan(t))
+    return;
+
+  int s=analogRead(soil);
+
+  ThingSpeak.setField(1,l);
+  ThingSpeak.setField(2,h);
+  ThingSpeak.setField(3,t);
+  ThingSpeak.setField(4,s);
+
+  int statusCode=ThingSpeak.writeFields(channelid,apikey);
+  if(statusCode==200) {
+    Serial.println("Data Uploaded to IoT Cloud");
+  } else {
+    Serial.println("Data Uploading Error");
+  }
+  
+  Serial.print("L: ");
+  Serial.print(l);
+  Serial.print(",H: ");
+  Serial.print(h);
+  Serial.print(",T: ");
+  Serial.print(t);
+  Serial.print(",S: ");
+  Serial.print(s);
+  Serial.println();
+  delay(15000); // 15 seconds
+}
